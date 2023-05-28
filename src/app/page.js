@@ -30,12 +30,11 @@ export async function getData() {
   const data = await res.json();
   return data;
 }
-
 export default async function page() {
   const products = await getData();
   return (
     <div>
-      <Sliec />
+      <Sliec/>
       <main className="flex min-h-screen flex-wrap items-center justify-between p-24">
         {products.map((product) => (
           <Card
