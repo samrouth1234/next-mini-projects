@@ -1,224 +1,259 @@
-"use client";
-import React, { useState } from 'react'
+"use client"
+import axios from "axios"
+import { ErrorMessage, Field, Form, Formik, useFormik } from "formik"
+import { useRouter } from "next/navigation"
+import React, { useEffect, useState } from "react"
+import * as Yup from "yup"
 
-import { Formik, Form, Field, ErrorMessage } from 'formik';
-import * as Yup from 'yup';
-import { data } from 'autoprefixer';
-import axios from "axios";
+// metadata
 
-const FILE_SIZE = 1024 * 1024 * 5;// 5MB
+//  create new product validation
+const validationSchema = Yup.object({
+  title: Yup.string().required("title required"),
+  price: Yup.number().required("price required"),
+  description: Yup.string().required("description required"),
+  categoryId: Yup.number().required("categoryId required"),
+  file: Yup.mixed()
+    .test("fileSize", "File then ", (value) => {
+      if (!value) {
+        return true
+      }
+      return value.size <= FILE_SIZE
+    })
+    .test("filsFormat", "UnSupport format", (value) => {
+      if (!value) {
+        return true
+      }
+      return SUPPORTED_FORMATS.includes(value.type)
+    })
+    .required("required"),
+})
+
+// for upload file
+const FILE_SIZE = 1024 * 1024 * 5 // 5MB
+
 const SUPPORTED_FORMATS = [
   "image/jpg",
   "image/jpeg",
+  "image/gif",
   "image/png",
-  "application/pdf",
+  "image/webp",
 ]
 
-// create schema 
+const handleUploadImage = async (values) => {
+  try {
+    const response = await axios.post(
+      "https://api.escuelajs.co/api/v1/files/upload",
+      values.file
+    )
+    console.log(response)
+    return (
+      response.data.location ||
+      "https://www.pulsecarshalton.co.uk/wp-content/uploads/2016/08/jk-placeholder-image.jpg"
+    )
+  } catch (error) {
+    console.log(error)
+  }
+}
 
-const validationSchema = Yup.object().shape({
-  title: Yup.string().required("Required"),
-  price: Yup.string().required("Required"),
-  description: Yup.string().required("Required"),
-  categoryId: Yup.number().required("Required"),
-  file: Yup.mixed()
-    .test("fileSize", "File too large", (value) => {
-      console.log("value", value);
-      if (!value) {
-        return true;
-      }
-      return value.size <= FILE_SIZE;
-    }).test("fileFormat", "Unsupported Format", (value) => {
-      if (!value) {
-        return true;
-      }
-      return SUPPORTED_FORMATS.includes(value.type);
-    }).required("Required"),
-});
+// handle fetch category
+export async function getCategory() {
+  const res = await fetch("https://api.escuelajs.co/api/v1/categories")
+  const data = await res.json()
+  // console.log(data)
+  return data
+}
 
-//  initialValues
+// handle upload file
+function CustomInput({ field, form, isSubmitting, ...props }) {
+  const [preview, setPreview] = useState(null)
+  //   for reset imageds
+  useEffect(() => {
+    if (isSubmitting) {
+      setPreview(null)
+    }
+  }, [isSubmitting])
+  return (
+    <div>
+      <input
+        type='file'
+        onChange={(event) => {
+          form.setFieldValue(field.name, event.currentTarget.files[0])
+          setPreview(URL.createObjectURL(event.currentTarget.files[0]))
+        }}
+        // {...props} is use to pass all props from Formik Field component
+        {...props}
+      />
+      {preview && (
+        <div className='avatar'>
+          <div className='w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2'>
+            <img
+              src={preview}
+              alt='dummy'
+              width='100'
+              height='100'
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+const Page = async () => {
+  const router = useRouter();
 
-export default function Login() {
-
-  const createUser = async (user) => {
-    const { title, price, description, images } = user;
-    const myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
+  const handleCreateProduct = async (product) => {
+    const { title, price, description, categoryId, images } = product
+    let myHeaders = new Headers()
+    myHeaders.append("Content-Type", "application/json")
 
     let raw = JSON.stringify({
       title,
       price,
       description,
-      images,
-    });
+      categoryId,
+      images: [images],
+      // images: ["https://placeimg.com/640/480/any"],
+    })
 
     let requestOptions = {
-      method: 'POST',
+      method: "POST",
       headers: myHeaders,
       body: raw,
-    };
-
-    try {
-      const res = await fetch("https://api.escuelajs.co/api/v1/users", requestOptions)
-      if (!res.ok) {
-        alert("Somthing went worng ");
-      } else {
-        alert(" User created successfully");
-        const data = await res.json()
-        console.log(data);
-      }
-    } catch (error) {
-      console.log(error);
-      alert(error.message);
     }
-    return data;
-  };
 
-  const uploadImage = async (values) => {
-    try {
-      const response = await axios.post(
-        "https://api.escuelajs.co/api/v1/files/upload",
-        values.file
-      );
-      console.log(response);
-      return response?.data?.location || "https://media.istockphoto.com/id/1147544807/vector/thumbnail-image-vector-graphic.jpg?s=612x612&w=0&k=20&c=rnCKVbdxqkjlcs3xH87-9gocETqpspHFXu5dIGB4wuM=";
-    } catch (error) {
-      console.log(error);
-    }
+    fetch("https://api.escuelajs.co/api/v1/products/", requestOptions)
+      .then((response) => response.json())
+      .then((result) => console.log(result),
+      alert("Create product successfully"),
+      router.push("/")
+      )
+      .catch((error) => console.log("error", error))
   }
 
-
-
+  //   fetch category
+  const categories = await getCategory()
+  console.log(categories)
   return (
-    <div className="  mx-96 mt-24  flex  justify-center items-center h-screen">
-      <div className='bg-indigo-500 flex rounded-md fixed top-1/4 left-1/5'>
-        <div className='w-50 '>
-          <Formik initialValues={{
-            title: "",
-            price: "",
-            description: "",
-            images: "",
-            file: undefined,
-          }}
-            // injection schema in Formik 
-            validationSchema={validationSchema}
-            // create onSubmit
-            onSubmit={async (values, { setSubmitting, resetForm }) => {
+    <Formik
+      initialValues={{
+        title: "",
+        price: 0,
+        description: "",
+        categoryId: 1,
+        images: ["https://placeimg.com/640/480/any"],
+        file: undefined,
+      }}
 
-              const formData = new FormData();
-              formData.append("file", values.file);
-              const images = await uploadImage({ file: formData });
-              console.log("images", images);
-              values.images = images;
-              createUser(values);
-              setSubmitting(false);
-              resetForm();
-            }}
+      validationSchema={validationSchema}
+      onSubmit={async (values, { setSubmitting, resetForm }) => {
+        const formData = new FormData()
+        formData.append("file", values.file)
+        const images = await handleUploadImage({ file: formData })
+        values.images = images
+        setTimeout(() => {
+          handleCreateProduct(values)
+          setSubmitting(false)
+          resetForm()
+        }, 500)
+      }}
+    >
+      
+      {({ isSubmitting, setFieldValue }) => (
+        <div className="flex justify-center w-full my-10">
+        <Form>
+          <h1 className="text-center font-bold text-3xl mb-5">Add New Product</h1>
+          <Field
+            className='input w-full  mb-5'
+            name='text'
+            type='text'
+            placeholder='text'
+          />{" "}
+          <br />
+          <ErrorMessage
+            className='text-red-500 text-xs italic'
+            name='text'
+            component='div'
+          />
+          {/* price   */}
+          <Field
+            className='input w-full  mb-5'
+            name='price'
+            type='number'
+            placeholder='price'
+          />{" "}
+          <br />
+          <ErrorMessage
+            className='text-red-500 text-xs italic'
+            name='price'
+            component='div'
+          />
+          {/* description */}
+          <Field
+            className='input w-full  mb-5'
+            name='description'
+            type='text'
+            placeholder='description'
+          />
+          <br />
+          <ErrorMessage
+            className='text-red-500 text-xs italic'
+            name='description'
+            component='div'
+          />
+          {/* categoryId */}
+          <Field
+            as='select'
+            name='categoryId'
+            className='select select-primary w-full '
           >
-            {/* create form for validation */}
-            {({ isSubmitting, setFieldValue }) => (
-              <Form>
-                <div className="mx-5 py-5 px-5 flex-col justify-center items-center">
-                  {/* Title  */}
-                  <div className="mb-6">
-                    <label htmlFor='Title' className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Title</label>
-                    <Field
-                      type="text"
-                      name="title"
-                      placeholder="title"
-                      className="block w-full p-4 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 sm:text-md
-                         focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400
-                         dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-                    {/* message Errors feedback */}
-                    <ErrorMessage
-                      name="title"
-                      component="div"
-                      className="text-red-500 text-sm"
-                    />
-                  </div>
-                  {/* price */}
-                  <div className="mb-6">
-                    <label htmlFor='price' className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Price</label>
-                    <Field
-                      type="price"
-                      name="price"
-                      placeholder="Enter price"
-                      className="block w-full p-4 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 sm:text-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-                    {/* message Errors feedback */}
-                    <ErrorMessage
-                      name="price"
-                      component="div"
-                      className="text-red-500 text-sm"
-                    />
-                  </div>
-                  {/* Description */}
-                  <div className="mb-6">
-                    <label htmlFor='description' className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>Description</label>
-                    <Field
-                      type="text"
-                      name="description"
-                      placeholder="description"
-                      className="block w-full p-4 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 sm:text-md
-                     focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400
-                     dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    />
-                    {/* message Errors feedback */}
-                    <ErrorMessage
-                      name="description"
-                      component="div"
-                      className="text-red-500 text-sm"
-                    />
-                  </div>
-                  {/* avatar */}
-                  <div className='mb-6'>
-                    <Field
-                      name="file"
-                      type="file"
-                      title="Select a file"
-                      setFieldValue={setFieldValue} // Set Formik value
-                      component={CustomInput} // component prop used to render the custom input
-                    />
-                    <ErrorMessage name="file">
-                      {(msg) => <div className="text-red-500">{msg}</div>}
-                    </ErrorMessage>
-                  </div>
-                  {/* create button for validation */}
-                  <div className='mt-5'>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Submit</button>
-                  </div>
-                </div>
-              </Form>
-            )}
-          </Formik>
+            <option
+            selected
+            disabled
+            >
+              choose category
+            </option>
+            {categories.map((cate) => (
+              <option
+                key={cate.id}
+                value={cate.id}
+              >
+                {cate.name}
+              </option>
+            ))}
+          </Field>
+          <ErrorMessage
+            className='text-red-500 text-xs italic'
+            name='categoryId'
+            component='div'
+          />
+          {/* file for avarta */}
+          <Field
+            className=' my-3 file-input file-input-bordered file-input-info w-full '
+            name='file'
+            type='file'
+            title='Select a file'
+            setFieldValue={setFieldValue} // Set Formik value
+            component={CustomInput} // component prop used to render the custom input
+            isSubmitting={isSubmitting}
+          />
+          <ErrorMessage
+            name='file'
+            component='h1'
+            className='text-red-500 text-xs italic'
+          />
+          <button
+            type='submit'
+            disabled={isSubmitting}
+            className='btn btn-primary w-full'
+          >
+            submit
+          </button>
+        </Form>
         </div>
-      </div>
-    </div>
-  )
-}
-// custom validation
-function CustomInput({ field, form, ...props }) {
-  const [preview, setPreview] = useState(null);
-  return (
-    <div>
-      <input
-        type="file"
-        onChange={(event) => {
-          //  console.log(event.currentTarget.files);
-          form.setFieldValue(field.name, event.currentTarget.files[0]);
-          setPreview(URL.createObjectURL(event.currentTarget.files[0]));
-        }}
-        {...props}
-      />
-      {preview && (
-        <img
-          className="w-20 h-20 rounded-full object-cover mt-4"
-          src={preview}
-          alt={preview}
-        />
       )}
-    </div>
+    </Formik>
   )
 }
+
+export default Page

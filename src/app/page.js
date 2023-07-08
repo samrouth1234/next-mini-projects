@@ -4,7 +4,7 @@ import React from 'react'
 
 export const metadata = {
   title: "Home page",
-  description: "",
+  description: "This is Project Demo Page",
   metadataBase: new URL("https://acme.com"),
   locale: "en-US",
   mainfest: "/mainfest.json",
